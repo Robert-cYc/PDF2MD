@@ -10,6 +10,7 @@ import fitz  # PyMuPDF
 import pdfplumber
 import os
 import re
+import base64
 from pathlib import Path
 
 
@@ -55,10 +56,12 @@ class PDFToMarkdownConverter:
         self.extract_images = tk.BooleanVar(value=True)
         self.extract_tables = tk.BooleanVar(value=True)
         self.preserve_format = tk.BooleanVar(value=True)
+        self.embed_images_base64 = tk.BooleanVar(value=False)
 
         ttk.Checkbutton(options_frame, text="Extract Images", variable=self.extract_images).grid(row=0, column=0, padx=10)
-        ttk.Checkbutton(options_frame, text="Extract Tables", variable=self.extract_tables).grid(row=0, column=1, padx=10)
-        ttk.Checkbutton(options_frame, text="Preserve Formatting", variable=self.preserve_format).grid(row=0, column=2, padx=10)
+        ttk.Checkbutton(options_frame, text="Embed Images (Base64)", variable=self.embed_images_base64).grid(row=0, column=1, padx=10)
+        ttk.Checkbutton(options_frame, text="Extract Tables", variable=self.extract_tables).grid(row=0, column=2, padx=10)
+        ttk.Checkbutton(options_frame, text="Preserve Formatting", variable=self.preserve_format).grid(row=0, column=3, padx=10)
 
         # Convert button
         ttk.Button(main_frame, text="Convert to Markdown", command=self.convert).grid(row=3, column=0, columnspan=3, pady=10)
@@ -156,24 +159,44 @@ class PDFToMarkdownConverter:
         # Extract images with PyMuPDF if enabled
         if self.extract_images.get():
             doc = fitz.open(pdf_path)
-            image_dir = Path(self.output_path.get()).parent / "images"
-            if self.output_path.get():
-                image_dir.mkdir(exist_ok=True)
-            for page_num in range(len(doc)):
-                page = doc[page_num]
-                image_list = page.get_images()
-                for img_idx, img in enumerate(image_list):
-                    if img:
-                        try:
-                            xref = img[0]
-                            pix = fitz.Pixmap(doc, xref)
-                            if pix.n > 4:
-                                pix = fitz.Pixmap(fitz.csRGB, pix)
-                            img_path = image_dir / f"page{page_num + 1}_img{img_idx + 1}.png"
-                            pix.save(str(img_path))
-                            markdown_parts.append(f"\n![Page {page_num + 1} Image {img_idx + 1}](images/{img_path.name})\n")
-                        except Exception:
-                            pass
+            if self.embed_images_base64.get():
+                # Embed images as base64 directly in markdown
+                for page_num in range(len(doc)):
+                    page = doc[page_num]
+                    image_list = page.get_images()
+                    for img_idx, img in enumerate(image_list):
+                        if img:
+                            try:
+                                xref = img[0]
+                                pix = fitz.Pixmap(doc, xref)
+                                if pix.n > 4:
+                                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                                # Convert to base64
+                                img_bytes = pix.tobytes("png")
+                                b64_str = base64.b64encode(img_bytes).decode('utf-8')
+                                markdown_parts.append(f'\n![Page {page_num + 1} Image {img_idx + 1}](data:image/png;base64,{b64_str})\n')
+                            except Exception:
+                                pass
+            else:
+                # Save images to files
+                image_dir = Path(self.output_path.get()).parent / "images"
+                if self.output_path.get():
+                    image_dir.mkdir(exist_ok=True)
+                for page_num in range(len(doc)):
+                    page = doc[page_num]
+                    image_list = page.get_images()
+                    for img_idx, img in enumerate(image_list):
+                        if img:
+                            try:
+                                xref = img[0]
+                                pix = fitz.Pixmap(doc, xref)
+                                if pix.n > 4:
+                                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                                img_path = image_dir / f"page{page_num + 1}_img{img_idx + 1}.png"
+                                pix.save(str(img_path))
+                                markdown_parts.append(f"\n![Page {page_num + 1} Image {img_idx + 1}](images/{img_path.name})\n")
+                            except Exception:
+                                pass
 
         return "".join(markdown_parts)
 

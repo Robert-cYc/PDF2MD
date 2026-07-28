@@ -24,8 +24,14 @@ pip install -r requirements.txt
 # Run GUI version
 python src/pdf2md_gui.py
 
-# Run CLI version
-python src/convert_simple.py input/document.pdf output/document.md
+# Run CLI version (auto-names output)
+python src/convert_simple.py input/document.pdf
+
+# CLI with images embedded as base64
+python src/convert_simple.py input/document.pdf --embed-images
+
+# CLI with custom output path
+python src/convert_simple.py input/document.pdf -o custom/output.md
 
 # Build standalone EXE
 pyinstaller --onefile --noconsole --name "pdf2md_converter" src/pdf2md_gui.py
@@ -49,4 +55,5 @@ The standalone executable is pre-built at `dist/pdf2md_converter.exe` (54MB). Yo
 - PDF conversion quality depends on source document structure
 - Scanned PDFs require Tesseract OCR to be installed on the system
 - Tables are extracted using pdfplumber when available
-- Images are extracted to an `images/` subfolder next to the output file
+- Images can be extracted to file or embedded as base64 in the markdown
+- Check "Embed Images (Base64)" in the GUI to include images directly in the markdown file
